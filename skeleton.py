@@ -29,7 +29,7 @@ class DetermineColor:
 			# TODO
 			# determine the color and assing +1, 0, or, -1 for frame_id
 			# msg.frame_id = '+1' # CCW (Blue background)
-			# msg.frame_id = '0'  # STOP
+			msg.frame_id = '0'  # STOP
 			# msg.frame_id = '-1' # CW (Red background)
 			self.count+=1
 			if self.count > 300 and self.count < 600:

@@ -98,4 +98,12 @@ class DetermineColor:
 
     except CvBridgeError as e:
       print(e)
-  
+    
+def rospy_shutdown(self, signal, frame):
+    rospy.signal_shutdown("shut down")
+    sys.exit(0)
+
+if __name__ == '__main__':
+  detector = DetermineColor()
+  rospy.init_node('CompressedImages1', anonymous = False)
+  rospy.spin()

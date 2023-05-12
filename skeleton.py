@@ -88,12 +88,11 @@ class DetermineColor:
       # determine background color
       extracted = screen_detection(image)
       msg.frame_id = detect_screen_color(extracted)
-      print(msg.frame_id)
+      self.color_pub.publish(msg)
       # if color_result == "red":
 
 
       # publish color_state
-      self.color_pub.publish(msg)
       cv2.imshow('Image', image)
       cv2.waitKey(1)
 

@@ -79,6 +79,7 @@ class DetermineColor:
       #prepare rotate_cmd msg
       msg = Header()
       msg = data.header
+      msg.frame_id = '0'
       msg.frame_id = screen_detection(image)
 
       # determine background color
@@ -96,7 +97,7 @@ class DetermineColor:
     sys.exit(0)
 
 if __name__ == '__main__':
-  rospy.init_node('CompressedImages1', anonymous = False)
   detector = DetermineColor()
+  rospy.init_node('CompressedImages1', anonymous = False)
   rospy.spin()
 

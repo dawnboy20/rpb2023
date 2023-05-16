@@ -1,109 +1,114 @@
 import rospy
 import numpy as np
 import cv2
-import signal
-import sys
 
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Header
 
-def detect_screen_color(img):
-    pub_message = '0'
-    bgr=[0,0,0]
-    for i in range(80):
-        for j in range(100):
-            b,g,r=img[int((i/80)*img.shape[0]*16/27+img.shape[0]*5/42),int((j/100)*img.shape[1]*13/18+img.shape[1]*1/9)]
-            if (b>=180 and b<=255) and (r>=0 and r<=60):
-                bgr[0]+=1
-            elif (b>=0 and b<=60) and (g>=0 and g<=150) and (r>=190 and r<=255):
-                bgr[1]+=1
-            else:
-                bgr[2]+=1
-    if np.argmax(bgr)==0:
-        pub_message='1'
-    elif np.argmax(bgr)==1:
-        pub_message='-1'# red background
-    else:
-        pub_message='0' # other color background
-    return pub_message
-
-
-def screen_detection(img):
-    # Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Apply edge detection
-    edges = cv2.Canny(gray, 100, 200)
-
-    # Find contours
-    contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Find the largest contour that meets the criteria
-    largest_contour = None
-    largest_area = 0.0
-    for cnt in contours:
-        x,y,w,h = cv2.boundingRect(cnt)
-        aspect_ratio = float(w)/h
-        if aspect_ratio > 0.5 and aspect_ratio < 2.0:
-            area = cv2.contourArea(cnt)
-            if area > largest_area:
-                largest_area = area
-                largest_contour = cnt
-
-    # Create a black canvas
-    canvas = np.zeros_like(img)
-
-    # Draw the largest contour onto the canvas
-    if largest_contour is not None:
-        cv2.drawContours(canvas, [largest_contour], 0, (255, 255, 255), -1)
-
-    # Mask the original image with the canvas
-    masked = cv2.bitwise_and(img, canvas)
-
-    # Show the results
-    cv2.imshow("Screen Extraction", masked)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    return masked
-
 
 class DetermineColor:
-  def __init__(self):
-    self.image_sub = rospy.Subscriber('/camera/color/image_raw', Image, self.callback)
-    self.color_pub = rospy.Publisher('/rotate_cmd', Header, queue_size=10)
-    self.bridge = CvBridge()
-    self.count = 0
+    def __init__(self):
+        self.image_sub = rospy.Subscriber('/camera/color/image_raw', Image, self.callback)
+        self.color_pub = rospy.Publisher('/rotate_cmd', Header, queue_size=10)
+        self.bridge = CvBridge()
+        self.count = 0
+        self.diff = []
+        self.val_tmp = []
+        self.pub_msg = '0'
 
 
-  def callback(self,data):
-    try:
-      # listen image topic
-      image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
+    def callback(self,data):
+        try:
+            # listen image topic
+            image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
+            high, width, col = image.shape
+            oth, blue, red = self.calculate_color(image)
+            cv2.imshow('Image', image)
+            cv2.waitKey(1)
 
-      #prepare rotate_cmd msg
-      msg = Header()
-      msg = data.header
-      msg.frame_id = '0'
+            #prepare rotate_cmd msg
+            msg = Header()
+            msg = data.header
+            msg.frame_id = '0'
+            self.determine_str(oth, blue, red)
 
-      # determine background color
-      extracted = screen_detection(image)
-      msg.frame_id = detect_screen_color(extracted)
-      self.color_pub.publish(msg)
+            msg.frame_id = self.pub_msg
+            # publish color_state
+            self.color_pub.publish(msg)
 
-      # publish color_state
-      cv2.imshow('Image', image)
-      cv2.waitKey(1)
-
-    except CvBridgeError as e:
-      print(e)
+        except CvBridgeError as e:
+            print(e)
     
-def rospy_shutdown(self, signal, frame):
-    rospy.signal_shutdown("shut down")
-    sys.exit(0)
+    def calculate_color(self, image):
+        imval = []
+        diff_tmp = []
+
+        height, width, col = image.shape
+        oth = 0
+        blue = 0
+        red = 0
+
+        if len(self.diff_tmp) == 0:
+            for i in range(0, height, 10):
+                arr_tmp = []
+                for j in range(0, width, 10):
+                    arr_tmp.append(list(image[i,j]))
+                imval.append(arr_tmp)
+            self.diff_tmp = imval
+        
+        else:
+            for i in range(0, height, 5):
+                arr_tmp = []
+                for j in range(0, width, 5):
+                    tmp = list(image[i,j])
+                    sub_tmp = list(self.diff_tmp[int(i/20)][int(j/20)])
+                    
+                    if (abs(int(tmp[0]) - int(sub_tmp[0])) + abs(int(tmp[1]) - int(sub_tmp[1])) +
+                        abs(int(tmp[2]) - int(sub_tmp[2]))) >= 200:
+                        diff_tmp.append([i, j])
+
+                    arr_tmp.append(tmp)
+                imval.append(arr_tmp)
+
+            if len(diff_tmp) > len(self.diff):
+                self.diff = diff_tmp
+            for arr in self.diff:
+                tmp = list(image[arr[0], arr[1]])
+                if tmp[0] >= 200 and tmp[1] >= 200 and tmp[2] >= 200:
+                    oth += 1
+                elif tmp[2] >= 200 and tmp[0] < 200 and tmp[1] < 200:
+                    red += 1
+                elif tmp[0] >= 200 and tmp[1] < 200 and tmp[2] < 200:
+                    blue += 1
+                else:
+                    if tmp[0] < 200 and tmp[1] < 200 and tmp[2] < 200:
+                        if tmp[0] > 100 and tmp[0] > tmp[2]:
+                            blue += 1
+                        else:
+                            oth += 1
+                    else:
+                        oth += 1
+        return oth, blue, red
+    
+    def determine_str(self, oth, blue, red):
+        if len(self.diff) > 10:
+            max_num = max([blue, red, oth])
+            if max_num == blue:
+                self.pub_msg == '1'
+            elif max_num == red:
+                self.pub_msg == '-1'
+
+
+
+
+    
+    def rospy_shutdown(self, signal, frame):
+        rospy.signal_shutdown("shut down")
+        sys.exit(0)
 
 if __name__ == '__main__':
-  detector = DetermineColor()
-  rospy.init_node('CompressedImages1', anonymous = False)
-  rospy.spin()
+    detector = DetermineColor()
+    rospy.init_node('CompressedImages1', anonymous = False)
+    rospy.spin()
+

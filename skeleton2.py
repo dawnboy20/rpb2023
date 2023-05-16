@@ -22,7 +22,6 @@ class DetermineColor:
         try:
             # listen image topic
             image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
-            high, width, col = image.shape
             oth, blue, red = self.calculate_color(image)
             cv2.imshow('Image', image)
             cv2.waitKey(1)
@@ -49,23 +48,22 @@ class DetermineColor:
         blue = 0
         red = 0
 
-        if len(self.diff_tmp) == 0:
+        if len(self.val_tmp) == 0:
             for i in range(0, height, 10):
                 arr_tmp = []
                 for j in range(0, width, 10):
                     arr_tmp.append(list(image[i,j]))
                 imval.append(arr_tmp)
-            self.diff_tmp = imval
+            self.val_tmp = imval
         
         else:
-            for i in range(0, height, 5):
+            for i in range(0, height, 10):
                 arr_tmp = []
-                for j in range(0, width, 5):
+                for j in range(0, width, 10):
                     tmp = list(image[i,j])
-                    sub_tmp = list(self.diff_tmp[int(i/20)][int(j/20)])
+                    sub_tmp = list(self.val_tmp[int(i/10)][int(j/10)])
                     
-                    if (abs(int(tmp[0]) - int(sub_tmp[0])) + abs(int(tmp[1]) - int(sub_tmp[1])) +
-                        abs(int(tmp[2]) - int(sub_tmp[2]))) >= 200:
+                    if (abs(int(tmp[0]) - int(sub_tmp[0])) + abs(int(tmp[1]) - int(sub_tmp[1])) + abs(int(tmp[2]) - int(sub_tmp[2]))) >= 200:
                         diff_tmp.append([i, j])
 
                     arr_tmp.append(tmp)
@@ -92,15 +90,15 @@ class DetermineColor:
         return oth, blue, red
     
     def determine_str(self, oth, blue, red):
-        if len(self.diff) > 10:
-            max_num = max([blue, red, oth])
-            if max_num == blue:
-                self.pub_msg == '1'
-            elif max_num == red:
-                self.pub_msg == '-1'
-
-
-
+    	if len(self.diff) > 10:
+    		max_num = max([blue, red, oth])
+    		if max_num == blue:
+    			self.pub_msg = '1'
+    		elif max_num == red:
+    			self.pub_msg = '-1'
+    		else:
+    			self.pub_msg = '0'
+    	print(self.pub_msg)
 
     
     def rospy_shutdown(self, signal, frame):
@@ -111,4 +109,3 @@ if __name__ == '__main__':
     detector = DetermineColor()
     rospy.init_node('CompressedImages1', anonymous = False)
     rospy.spin()
-

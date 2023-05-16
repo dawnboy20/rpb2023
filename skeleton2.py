@@ -98,7 +98,6 @@ class DetermineColor:
     			self.pub_msg = '-1'
     		else:
     			self.pub_msg = '0'
-    	print(self.pub_msg)
 
     
     def rospy_shutdown(self, signal, frame):

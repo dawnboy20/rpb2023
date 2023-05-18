@@ -90,10 +90,10 @@ class DetermineColor:
         return blue, red, oth
     
     def determine_str(self, blue, red, oth):
-    	if len(self.diff) > 10:
+    	if len(self.diff) > 7:
     		max_num = max([blue, red, oth])
     		if max_num == blue:
-    			self.pub_msg = '1'
+    			self.pub_msg = '+1'
     		elif max_num == red:
     			self.pub_msg = '-1'
     		else:
